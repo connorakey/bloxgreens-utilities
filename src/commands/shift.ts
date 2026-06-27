@@ -219,6 +219,8 @@ export const shift: Command = {
         return;
       }
 
+      await interaction.deferReply({ ephemeral: true });
+
       const approverRoleId = config.roles.shifts.approver;
       const member = interaction.inCachedGuild()
         ? interaction.member
@@ -242,11 +244,45 @@ export const shift: Command = {
 
       const started = await markShiftStartedByShiftTime(shiftTime);
 
-      await interaction.reply({
+      if (started) {
+        const shiftsChannelId = config.channel_ids.shifts;
+        const pingRoleId = config.roles.shifts.ping;
+        const shiftsChannel = await interaction.client.channels
+          .fetch(shiftsChannelId)
+          .catch(() => null);
+
+        if (shiftsChannel?.isSendable()) {
+          const pingRoleMention = pingRoleId ? `<@&${pingRoleId}>` : '';
+          const cohostMention = shift.cohostDiscordId || "None"
+            ? `<@${shift.cohostDiscordId}>`
+            : 'None';
+          const startedEmbed = new EmbedBuilder()
+            .setTitle('📢 Shift Started')
+            .setColor(0xFF0000)
+            .setDescription(
+              `A new staff shift has now **commenced**!\n\n` +
+              `Host: <@${shift.hostDiscordId}>\n` +
+              `Co-Host: ${cohostMention}\n\n` +
+              'Duration: \n' + // you are to add a duration for example if its 14:00-16:00 it should say 2 hours or if its 14:00-15:30 it should say 1 hour 30 minutes etc..
+              'Shift Type: ' + (shift.promotional ? 'Promotional' : 'Regular') + '\n\n' +
+              (shift.promotional
+                ? 'We\'d love to see you join us! Whether you\'re looking to gain experience, improve your skills, simply support the team, or aiming for a promotion (I can\'t blame you!) everyone is welcome to attend. We hope to see you there!'
+                : 'We\'d love to see you join us! Whether you\'re looking to gain experience, improve your skills, or simply support the team, everyone is welcome to attend. We hope to see you there!') +
+              '\n\n' +
+              `[Open the game](https://www.roblox.com/games/74711204613713/Bloxgreens-Shopping)`,
+            )
+
+          await shiftsChannel.send({
+            content: pingRoleMention || undefined,
+            embeds: [startedEmbed],
+          }).catch(() => {});
+        }
+      }
+
+      await interaction.editReply({
         content: started
           ? `Shift ${shiftTime} has been marked as started.`
           : `No matching shift was found for ${shiftTime}.`,
-        ephemeral: true,
       });
     }
 
@@ -268,15 +304,16 @@ export const shift: Command = {
         return;
       }
 
+      await interaction.deferReply({ ephemeral: true });
+
       const cancelled = await cancelShiftByShiftTime(shiftTime, deleteNow);
 
-      await interaction.reply({
+      await interaction.editReply({
         content: cancelled
           ? deleteNow
             ? `Shift ${shiftTime} has been deleted immediately.`
             : `Shift ${shiftTime} has been cancelled and will be deleted after 12 hours.`
           : `No matching shift was found for ${shiftTime}.`,
-        ephemeral: true,
       });
     }
 
