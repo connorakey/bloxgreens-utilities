@@ -1,0 +1,7 @@
+{
+    "channel_ids": {
+        "suggestions": "YOUR_SUGGESTIONS_CHANNEL_ID",
+        "shifts": "YOUR_SHIFTS_CHANNEL_ID",
+        "shift_requests": "YOUR_SHIFT_REQUESTS_CHANNEL_ID"
+    }
+}
