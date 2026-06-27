@@ -1,5 +1,5 @@
-import type { ChatInputCommandInteraction } from "discord.js";
-import { commands } from "../commands";
+import type { ChatInputCommandInteraction } from 'discord.js';
+import { commands } from '../commands';
 
 export async function handleInteraction(
   interaction: ChatInputCommandInteraction,
@@ -16,7 +16,7 @@ export async function handleInteraction(
   } catch (error) {
     console.error(`Error executing ${interaction.commandName}:`, error);
 
-    const errorMessage = "There was an error while executing this command!";
+    const errorMessage = 'There was an error while executing this command!';
 
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({ content: errorMessage, ephemeral: true });

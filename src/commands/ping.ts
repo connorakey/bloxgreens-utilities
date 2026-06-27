@@ -1,14 +1,14 @@
-import { SlashCommandBuilder, MessageFlags } from "discord.js";
-import type { Command } from "../types/Command";
+import { SlashCommandBuilder, MessageFlags } from 'discord.js';
+import type { Command } from '../types/Command';
 
 export const ping: Command = {
   data: new SlashCommandBuilder()
-    .setName("ping")
+    .setName('ping')
     .setDescription("Check the bot's latency."),
 
   async execute(interaction) {
     const response = await interaction.reply({
-      content: "Pinging...",
+      content: 'Pinging...',
       flags: MessageFlags.Ephemeral,
       withResponse: true,
     });
