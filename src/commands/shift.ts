@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import type { Command } from '../types/Command';
+import { sendToShiftApprover } from '../services/shiftApprovalService';
 
 import config from '../../config/config.json';
 
@@ -84,9 +85,9 @@ export const shift: Command = {
         interaction.member.roles.cache.has(config.roles.shifts.requester)
       ) {
         const embed = new EmbedBuilder()
-          .setTitle('❗ Please Confirm Shift Request ❗')
+          .setTitle('❗ Please Confirm Shift Request Submission ❗')
           .setDescription(
-            `Please confirm your shift request: <@${interaction.user.id}>.\n\n` +
+            `Please confirm your shift request submittion: <@${interaction.user.id}>.\n\n` +
               `**Shift Time:** ${shiftTime}\n` +
               `**Cohost:** ${cohost ? `<@${cohost.id}>` : 'None'}\n` +
               `**Promotional Shift:** ${promotional ? 'Yes' : 'No'}\n\n` +
@@ -117,6 +118,13 @@ export const shift: Command = {
             await interaction.followUp({
               content: `Your shift request has been forwarded to our shift approvers for review. You will be notified once a decision has been made, please ensure that your direct messages are open so that you can receive the decision. Thank you for your patience!`,
             });
+            sendToShiftApprover(
+              interaction,
+              shiftTime,
+              interaction.user.id,
+              cohost?.id ?? null,
+              promotional,
+            );
           }
 
           if (reaction.emoji.name === '❌') {
