@@ -1,10 +1,12 @@
 import { createTrelloClient } from 'trello.js';
+import { saveShiftRecord } from './shiftStore';
 
-const board = '6a3f3f551c2e98987fecad69';
+export const SHIFT_BOARD_ID = '6a3f3f551c2e98987fecad69';
+export const SHIFT_TARGET_LIST_INDEX = 0;
+const SHIFT_TIME_ZONE = 'America/New_York';
 
 const PLANNED_LABEL_NAME = 'Planned';
 const PLANNED_LABEL_COLOR = 'yellow';
-const TARGET_LIST_INDEX = 0;
 
 function getRequiredEnv(name: string) {
   const value = process.env[name];
@@ -16,24 +18,113 @@ function getRequiredEnv(name: string) {
   return value;
 }
 
-function parseShiftDueDate(shiftTime: string) {
-  const match = shiftTime.match(
-    /^(?<day>0[1-9]|[12]\d|3[01])-(?<month>0[1-9]|1[0-2]) (?<hour>[01]\d|2[0-3]):(?<minute>[0-5]\d)-([01]\d|2[0-3]):[0-5]\d$/,
-  );
+function getTimeZoneOffsetMs(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
 
-  if (!match?.groups) {
+  const values: Record<string, string> = {};
+
+  for (const part of formatter.formatToParts(date)) {
+    if (part.type !== 'literal') {
+      values[part.type] = part.value;
+    }
+  }
+
+  return (
+    Date.UTC(
+      Number(values.year),
+      Number(values.month) - 1,
+      Number(values.day),
+      Number(values.hour),
+      Number(values.minute),
+      Number(values.second),
+    ) - date.getTime()
+  );
+}
+
+function zonedDateTimeToUtcMs(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  timeZone: string,
+) {
+  const naiveUtcMs = Date.UTC(year, month - 1, day, hour, minute, 0, 0);
+  let utcMs = naiveUtcMs;
+
+  for (let i = 0; i < 3; i += 1) {
+    const offsetMs = getTimeZoneOffsetMs(new Date(utcMs), timeZone);
+    const nextUtcMs = naiveUtcMs - offsetMs;
+
+    if (nextUtcMs === utcMs) {
+      break;
+    }
+
+    utcMs = nextUtcMs;
+  }
+
+  return utcMs;
+}
+
+function parseShiftDueDate(shiftTime: string) {
+  const window = parseShiftWindow(shiftTime);
+
+  if (!window) {
     throw new Error('Shift time must be in DD-MM HH:mm-HH:mm format.');
   }
 
-  const dueDate = new Date(
-    new Date().getFullYear(),
-    Number(match.groups.month) - 1,
-    Number(match.groups.day),
-    Number(match.groups.hour),
-    Number(match.groups.minute),
+  return new Date(window.startMs).toISOString();
+}
+
+function parseShiftWindow(shiftTime: string) {
+  const match = shiftTime.match(
+    /^(?<day>0[1-9]|[12]\d|3[01])-(?<month>0[1-9]|1[0-2]) (?<startHour>[01]\d|2[0-3]):(?<startMinute>[0-5]\d)-(?<endHour>[01]\d|2[0-3]):(?<endMinute>[0-5]\d)$/,
   );
 
-  return dueDate.toISOString();
+  if (!match?.groups) {
+    return null;
+  }
+
+  const start = new Date(
+    zonedDateTimeToUtcMs(
+      new Date().getFullYear(),
+      Number(match.groups.month),
+      Number(match.groups.day),
+      Number(match.groups.startHour),
+      Number(match.groups.startMinute),
+      SHIFT_TIME_ZONE,
+    ),
+  );
+
+  const end = new Date(
+    zonedDateTimeToUtcMs(
+      new Date().getFullYear(),
+      Number(match.groups.month),
+      Number(match.groups.day),
+      Number(match.groups.endHour),
+      Number(match.groups.endMinute),
+      SHIFT_TIME_ZONE,
+    ),
+  );
+
+  if (end.getTime() < start.getTime()) {
+    end.setDate(end.getDate() + 1);
+  }
+
+  return {
+    startMs: start.getTime(),
+    endMs: end.getTime(),
+  };
 }
 
 async function getRobloxIDfromDiscordId(id: string | null) {
@@ -219,11 +310,17 @@ export async function sendToShiftTrello(
   hostId: string,
   cohostId: string | null,
   promotional: boolean,
+  approverId: string,
 ) {
   const [hostUsername, cohostUsername] = await Promise.all([
     getUsernameFromDiscordId(hostId),
     getUsernameFromDiscordId(cohostId),
   ]);
+  const window = parseShiftWindow(shiftTime);
+
+  if (!window) {
+    throw new Error('Shift time must be in DD-MM HH:mm-HH:mm format.');
+  }
 
   const trello = createTrelloClient({
     apiKey: getRequiredEnv('TRELLO_API_KEY'),
@@ -232,14 +329,14 @@ export async function sendToShiftTrello(
 
   const [lists, labels] = await Promise.all([
     trello.boards.getBoardLists({
-      id: board,
+      id: SHIFT_BOARD_ID,
       filter: 'open',
       fields: ['id', 'name', 'pos'],
     }),
-    trello.boards.getBoardLabels({ id: board }),
+    trello.boards.getBoardLabels({ id: SHIFT_BOARD_ID }),
   ]);
 
-  const targetList = lists[TARGET_LIST_INDEX];
+  const targetList = lists[SHIFT_TARGET_LIST_INDEX];
 
   if (!targetList) {
     throw new Error('The Trello board does not have a second list.');
@@ -252,18 +349,38 @@ export async function sendToShiftTrello(
         label.color === PLANNED_LABEL_COLOR,
     ) ??
     (await trello.boards.createBoardLabel({
-      id: board,
+      id: SHIFT_BOARD_ID,
       name: PLANNED_LABEL_NAME,
       color: PLANNED_LABEL_COLOR,
     }));
 
-  return trello.cards.createCard({
+  const card = await trello.cards.createCard({
     idList: targetList.id,
     name: promotional ? 'Promotional Shift' : 'Shift',
     desc:
-      `Host: ${formatShiftMember(hostUsername, hostId)}\n` +
-      `Co-Host: ${formatShiftMember(cohostUsername, cohostId)}`,
+      `Host: ${hostUsername ?? 'Unknown'}\n` +
+      `Co-Host: ${cohostUsername ?? 'None'}`,
     due: parseShiftDueDate(shiftTime),
     idLabels: [plannedLabel.id],
   });
+
+  try {
+    saveShiftRecord({
+      shiftTime,
+      trelloCardId: card.id,
+      hostDiscordId: hostId,
+      hostUsername: hostUsername ?? 'Unknown',
+      cohostDiscordId: cohostId,
+      cohostUsername,
+      approverDiscordId: approverId,
+      promotional,
+      startMs: window.startMs,
+      endMs: window.endMs,
+    });
+  } catch (error) {
+    await trello.cards.deleteCard({ id: card.id }).catch(() => {});
+    throw error;
+  }
+
+  return card;
 }

@@ -1,11 +1,40 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import type { Command } from '../types/Command';
 import { sendToShiftApprover } from '../services/shiftApprovalService';
-
+import {
+  cancelShiftByShiftTime,
+  markShiftStartedByShiftTime,
+} from '../services/shiftDueMonitorService';
+import { getShiftByShiftTime, listActiveShifts } from '../services/shiftStore';
 import config from '../../config/config.json';
 
 const SHIFT_TIME_FORMAT =
   /^(0[1-9]|[12]\d|3[01])-(0[1-9]|1[0-2]) ([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/;
+
+function formatShiftTimestamp(shiftTime: string, ms: number) {
+  return `\`${shiftTime}\` <t:${Math.floor(ms / 1000)}:R>`;
+}
+
+function getShiftListStatus(shift: {
+  startMs: number;
+  endMs: number;
+  startedAt: number | null;
+  concludedAt: number | null;
+}) {
+  if (shift.concludedAt) {
+    return 'Concluded';
+  }
+
+  if (Date.now() < shift.startMs) {
+    return 'Upcoming';
+  }
+
+  if (shift.startedAt) {
+    return 'Live';
+  }
+
+  return 'Pending Start';
+}
 
 export const shift: Command = {
   data: new SlashCommandBuilder()
@@ -42,13 +71,35 @@ export const shift: Command = {
 
     .addSubcommand((subcommand) =>
       subcommand
-        .setName('end')
-        .setDescription('End an active shift')
+        .setName('start')
+        .setDescription('Mark a shift as started')
         .addStringOption((option) =>
           option
             .setName('shift_time')
             .setDescription(
-              'Shift date/time to end (DD-MM HH:mm-HH:mm). Must match your shift or cohosted shift.',
+              'Shift date/time to start (DD-MM HH:mm-HH:mm). Must match your shift.',
+            )
+            .setRequired(true),
+        ),
+    )
+
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName('cancel')
+        .setDescription('Cancel an active shift')
+        .addStringOption((option) =>
+          option
+            .setName('shift_time')
+            .setDescription(
+              'Shift date/time to cancel (DD-MM HH:mm-HH:mm). Must match an active shift.',
+            )
+            .setRequired(true),
+        )
+        .addBooleanOption((option) =>
+          option
+            .setName('delete_now')
+            .setDescription(
+              'Delete the Trello card immediately instead of starting the 12 hour deletion timer.',
             )
             .setRequired(true),
         ),
@@ -156,13 +207,111 @@ export const shift: Command = {
       }
     }
 
-    if (subcommand === 'end') {
+    if (subcommand === 'start') {
       const shiftTime = interaction.options.getString('shift_time', true);
-      // TODO: end shift logic
+      const shift = getShiftByShiftTime(shiftTime);
+
+      if (!shift) {
+        await interaction.reply({
+          content: `No matching shift was found for ${shiftTime}.`,
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const approverRoleId = config.roles.shifts.approver;
+      const member = interaction.inCachedGuild()
+        ? interaction.member
+        : await interaction.guild?.members
+            .fetch(interaction.user.id)
+            .catch(() => null);
+
+      const isAllowed =
+        member?.id === shift.hostDiscordId ||
+        member?.id === shift.cohostDiscordId ||
+        member?.roles.cache.has(approverRoleId) === true;
+
+      if (!isAllowed) {
+        await interaction.reply({
+          content:
+            'You do not have permission to start this shift. Only the host, co-host, or a shift approver can use this command.',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const started = await markShiftStartedByShiftTime(shiftTime);
+
+      await interaction.reply({
+        content: started
+          ? `Shift ${shiftTime} has been marked as started.`
+          : `No matching shift was found for ${shiftTime}.`,
+        ephemeral: true,
+      });
+    }
+
+    if (subcommand === 'cancel') {
+      const shiftTime = interaction.options.getString('shift_time', true);
+      const deleteNow = interaction.options.getBoolean('delete_now', true);
+      const approverRoleId = config.roles.shifts.approver;
+      const member = interaction.inCachedGuild()
+        ? interaction.member
+        : await interaction.guild?.members
+            .fetch(interaction.user.id)
+            .catch(() => null);
+
+      if (!member?.roles.cache.has(approverRoleId)) {
+        await interaction.reply({
+          content: 'Only shift approvers can cancel shifts.',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const cancelled = await cancelShiftByShiftTime(shiftTime, deleteNow);
+
+      await interaction.reply({
+        content: cancelled
+          ? deleteNow
+            ? `Shift ${shiftTime} has been deleted immediately.`
+            : `Shift ${shiftTime} has been cancelled and will be deleted after 12 hours.`
+          : `No matching shift was found for ${shiftTime}.`,
+        ephemeral: true,
+      });
     }
 
     if (subcommand === 'list') {
-      // TODO: list logic
+      const shifts = listActiveShifts();
+
+      if (shifts.length === 0) {
+        await interaction.reply({
+          content: 'There are no active shifts right now.',
+          ephemeral: true,
+        });
+        return;
+      }
+
+      const embed = new EmbedBuilder()
+        .setTitle('Active Shifts')
+        .setColor(0x00b2ff)
+        .setDescription(
+          shifts
+            .map((shift) => {
+              const cohost = shift.cohostUsername ?? 'None';
+
+              return [
+                `${formatShiftTimestamp(shift.shiftTime, shift.startMs)} - ${getShiftListStatus(shift)}`,
+                `Host: ${shift.hostUsername}`,
+                `Co-Host: ${cohost}`,
+                `Promotional: ${shift.promotional ? 'Yes' : 'No'}`,
+              ].join('\n');
+            })
+            .join('\n\n'),
+        );
+
+      await interaction.reply({
+        embeds: [embed],
+      });
     }
   },
 };

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { registerCommands } from './utils/registerCommands';
 import { handleInteraction } from './utils/handleInteraction';
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
-import { createTrelloClient } from 'trello.js';
+import { startShiftDueMonitor } from './services/shiftDueMonitorService';
 
 const client = new Client({
   intents: [
@@ -17,6 +17,7 @@ const client = new Client({
 client.once(Events.ClientReady, async () => {
   console.log(`Logged in as ${client.user?.tag}!`);
   await registerCommands(client);
+  await startShiftDueMonitor(client);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

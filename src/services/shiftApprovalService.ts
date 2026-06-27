@@ -73,6 +73,7 @@ export async function sendToShiftApprover(
         hostId,
         cohostId,
         promotional,
+        user.id,
       ).catch((error) => {
         console.error('Failed to create Trello shift card:', error);
       });
