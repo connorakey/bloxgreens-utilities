@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { registerCommands } from './utils/registerCommands';
 import { handleInteraction } from './utils/handleInteraction';
 import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
+import { createTrelloClient } from 'trello.js';
 
 const client = new Client({
   intents: [

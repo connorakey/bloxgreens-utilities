@@ -16,6 +16,9 @@ const activeShifts = new Map<
   }
 >();
 
+const SHIFT_TIME_FORMAT =
+  /^(0[1-9]|[12]\d|3[01])-(0[1-9]|1[0-2]) ([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/;
+
 export const shift: Command = {
   data: new SlashCommandBuilder()
     .setName('shift')
@@ -29,7 +32,7 @@ export const shift: Command = {
           option
             .setName('shift_time')
             .setDescription(
-              'Shift time HH:mm-HH:mm (e.g. 14:00-16:00). Create 24h ahead. Must attend full shift; no public use.',
+              'Shift date/time DD-MM HH:mm-HH:mm (e.g. 03-07 14:00-16:00).',
             )
             .setRequired(true),
         )
@@ -57,7 +60,7 @@ export const shift: Command = {
           option
             .setName('shift_time')
             .setDescription(
-              'Shift time to end (HH:mm-HH:mm). Must match your shift or cohosted shift.',
+              'Shift date/time to end (DD-MM HH:mm-HH:mm). Must match your shift or cohosted shift.',
             )
             .setRequired(true),
         ),
@@ -79,6 +82,15 @@ export const shift: Command = {
       const cohost = interaction.options.getUser('cohost', false);
       const promotional =
         interaction.options.getBoolean('promotional', false) ?? false;
+
+      if (!SHIFT_TIME_FORMAT.test(shiftTime)) {
+        await interaction.reply({
+          content:
+            'Invalid shift time format. Please use `DD-MM HH:mm-HH:mm`, for example `03-07 14:00-16:00`.',
+          ephemeral: true,
+        });
+        return;
+      }
 
       if (
         interaction.inCachedGuild() &&

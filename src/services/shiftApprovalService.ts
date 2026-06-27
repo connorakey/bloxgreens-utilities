@@ -5,6 +5,7 @@ import type {
   User,
 } from 'discord.js';
 import config from '../../config/config.json';
+import { sendToShiftTrello } from './shiftTrelloService';
 
 const DECISION_REACTIONS = ['✅', '❌'] as const;
 const SHIFT_REQUEST_TIMEOUT_MS = 48 * 60 * 60 * 1000;
@@ -65,6 +66,17 @@ export async function sendToShiftApprover(
     const host = await interaction.client.users.fetch(hostId).catch(() => null);
 
     collector.stop(decision);
+
+    if (approved) {
+      await sendToShiftTrello(
+        shiftTime,
+        hostId,
+        cohostId,
+        promotional,
+      ).catch((error) => {
+        console.error('Failed to create Trello shift card:', error);
+      });
+    }
 
     await host
       ?.send(

@@ -2,13 +2,13 @@
     "channel_ids": {
         "suggestions": "YOUR_SUGGESTIONS_CHANNEL_ID",
         "shifts": "YOUR_SHIFTS_CHANNEL_ID",
-        "shift_requests": "YOUR_SHIFT_REQUESTS_CHANNEL_ID"
+        "shift_requests": "1520228598647230535"
     },
 
     "roles": {
         "shifts": {
             "requester": "1319730897104277524",
-            "approver": "YOUR_APPROVER_ROLE_ID",
+            "approver": "1319730897104277524",
             "ping": "YOUR_PING_ROLE_ID"
         }
     }
