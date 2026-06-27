@@ -4,18 +4,6 @@ import { sendToShiftApprover } from '../services/shiftApprovalService';
 
 import config from '../../config/config.json';
 
-const activeShifts = new Map<
-  string,
-  {
-    messageId: string;
-    hostId: string;
-    cohostId: string | null;
-    shiftApproverId: string;
-    promotional: boolean;
-    shiftTime: string;
-  }
->();
-
 const SHIFT_TIME_FORMAT =
   /^(0[1-9]|[12]\d|3[01])-(0[1-9]|1[0-2]) ([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/;
 
