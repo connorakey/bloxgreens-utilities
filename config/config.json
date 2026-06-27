@@ -7,7 +7,7 @@
 
     "roles": {
         "shifts": {
-            "requester": "YOUR_REQUESTER_ROLE_ID",
+            "requester": "1319730897104277524",
             "approver": "YOUR_APPROVER_ROLE_ID",
             "ping": "YOUR_PING_ROLE_ID"
         }

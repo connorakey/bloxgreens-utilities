@@ -1,14 +1,16 @@
 import 'dotenv/config';
 import { registerCommands } from './utils/registerCommands';
 import { handleInteraction } from './utils/handleInteraction';
-import { Client, Events, GatewayIntentBits } from 'discord.js';
+import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.MessageContent,
   ],
+  partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
 
 client.once(Events.ClientReady, async () => {
