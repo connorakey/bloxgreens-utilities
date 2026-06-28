@@ -1,14 +1,21 @@
-import { EmbedBuilder } from 'discord.js';
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
+  EmbedBuilder,
+} from 'discord.js';
 import type {
+  ButtonInteraction,
   ChatInputCommandInteraction,
-  MessageReaction,
   User,
 } from 'discord.js';
 import config from '../../config/config.json';
 import { sendToShiftTrello } from './shiftTrelloService';
 
-const DECISION_REACTIONS = ['✅', '❌'] as const;
 const SHIFT_REQUEST_TIMEOUT_MS = 48 * 60 * 60 * 1000;
+
+type ShiftDecision = 'approved' | 'declined';
 
 export async function sendToShiftApprover(
   interaction: ChatInputCommandInteraction,
@@ -39,33 +46,69 @@ export async function sendToShiftApprover(
     )
     .setColor(0xff0000);
 
-  const message = await channel.send({ embeds: [embed] });
+  const approveCustomId = `shift-approve:${interaction.id}`;
+  const declineCustomId = `shift-decline:${interaction.id}`;
 
-  const filter = (reaction: MessageReaction, user: User) =>
-    DECISION_REACTIONS.includes(
-      reaction.emoji.name as (typeof DECISION_REACTIONS)[number],
-    ) && !user.bot;
+  const decisionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(approveCustomId)
+      .setEmoji('✅')
+      .setLabel('Approve')
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(declineCustomId)
+      .setEmoji('❌')
+      .setLabel('Decline')
+      .setStyle(ButtonStyle.Danger),
+  );
 
-  const collector = message.createReactionCollector({
-    filter,
+  const message = await channel.send({
+    embeds: [embed],
+    components: [decisionRow],
+  });
+
+  const collector = message.createMessageComponentCollector({
+    componentType: ComponentType.Button,
     time: SHIFT_REQUEST_TIMEOUT_MS,
   });
 
-  collector.on('collect', async (reaction, user) => {
-    const member = await interaction.guild?.members
-      .fetch(user.id)
-      .catch(() => null);
+  let decisionSettled = false;
 
-    if (!member?.roles.cache.has(config.roles.shifts.approver)) {
-      await reaction.users.remove(user.id).catch(() => {});
+  collector.on('collect', async (buttonInteraction: ButtonInteraction) => {
+    if (
+      ![approveCustomId, declineCustomId].includes(buttonInteraction.customId)
+    ) {
       return;
     }
 
-    const approved = reaction.emoji.name === '✅';
-    const decision = approved ? 'approved' : 'denied';
+    if (decisionSettled) {
+      await buttonInteraction.deferUpdate().catch(() => {});
+      return;
+    }
+
+    const member = await buttonInteraction.guild?.members
+      .fetch(buttonInteraction.user.id)
+      .catch(() => null);
+
+    if (!member?.roles.cache.has(config.roles.shifts.approver)) {
+      await buttonInteraction
+        .reply({
+          content: 'Only shift approvers can decide shift requests.',
+          ephemeral: true,
+        })
+        .catch(() => {});
+      return;
+    }
+
+    const decision: ShiftDecision =
+      buttonInteraction.customId === approveCustomId ? 'approved' : 'declined';
+    decisionSettled = true;
+    const approved = decision === 'approved';
+    const user: User = buttonInteraction.user;
     const host = await interaction.client.users.fetch(hostId).catch(() => null);
 
     collector.stop(decision);
+    await buttonInteraction.deferUpdate().catch(() => {});
 
     if (approved) {
       await sendToShiftTrello(
@@ -83,7 +126,7 @@ export async function sendToShiftApprover(
       ?.send(
         approved
           ? `Your shift request for ${shiftTime} has been approved by <@${user.id}>. Please ensure that you are available to attend the shift. If you have any questions, please reach out to the shift approver. If you are unable to attend the shift, please contact the shift approver as soon as possible.`
-          : `Your shift request for ${shiftTime} has been denied by <@${user.id}>. If you have any questions, please reach out to the shift approver.`,
+          : `Your shift request for ${shiftTime} has been declined by <@${user.id}>. If you have any questions, please reach out to the shift approver.`,
       )
       .catch(() => {});
 
@@ -93,18 +136,14 @@ export async function sendToShiftApprover(
           .setTitle(
             approved
               ? '✅ Shift Request Approved ✅'
-              : '❌ Shift Request Denied ❌',
+              : '❌ Shift Request Declined ❌',
           )
           .setColor(approved ? 0x00ff00 : 0xff0000)
           .setDescription(
             `${requestDescription}\n\nThis shift request has been ${decision} by <@${user.id}>.`,
           ),
       ],
+      components: [],
     });
   });
-
-  await Promise.all([
-    message.react(DECISION_REACTIONS[0]),
-    message.react(DECISION_REACTIONS[1]),
-  ]);
 }
