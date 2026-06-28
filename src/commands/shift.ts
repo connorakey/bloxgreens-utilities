@@ -152,6 +152,14 @@ export const shift: Command = {
         return;
       }
 
+      if (cohost && cohost.id === interaction.user.id) {
+        await interaction.reply({
+          content: 'You cannot set yourself as the cohost for a shift.',
+          ephemeral: true,
+        });
+        return;
+      }
+
       if (
         interaction.inCachedGuild() &&
         interaction.member.roles.cache.has(config.roles.shifts.requester)
@@ -322,7 +330,7 @@ export const shift: Command = {
 
       if (!member?.roles.cache.has(approverRoleId)) {
         await interaction.reply({
-          content: 'Only shift approvers can cancel shifts.',
+          content: 'Only shift approvers can cancel shifts. If you are a shift approver, you are running this command in the wrong server.',
           ephemeral: true,
         });
         return;
