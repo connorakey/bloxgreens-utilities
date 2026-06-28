@@ -51,6 +51,10 @@ export const suggest: Command = {
     const embed = new EmbedBuilder()
       .setTitle(title)
       .setDescription(description || 'No description provided.')
+      .setAuthor({
+        name: `Suggested by ${interaction.user.tag}`,
+        iconURL: interaction.user.displayAvatarURL(),
+      })
       .setFooter({ text: `Suggestion Type: ${typeName(type)}` })
       .setColor(0xff0000)
       .setTimestamp();
