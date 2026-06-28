@@ -21,4 +21,5 @@ AI was used to completely generate the following files:
 /src/services/*
 
 AI was used to edit the following:
-N/A
+Shift Cancel, and start functionality.
+Anything related to trello.
