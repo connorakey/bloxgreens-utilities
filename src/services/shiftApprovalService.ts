@@ -12,6 +12,7 @@ import type {
 } from 'discord.js';
 import config from '../../config/config.json';
 import { sendToShiftTrello } from './shiftTrelloService';
+import { formatShiftTimeWithTimestamp } from '../utils/shiftTime';
 
 const SHIFT_REQUEST_TIMEOUT_MS = 48 * 60 * 60 * 1000;
 
@@ -32,8 +33,9 @@ export async function sendToShiftApprover(
     return;
   }
 
+  const formattedShiftTime = formatShiftTimeWithTimestamp(shiftTime);
   const requestDescription =
-    `**Shift Time:** ${shiftTime}\n` +
+    `**Shift Time:** ${formattedShiftTime}\n` +
     `**Host:** <@${hostId}>\n` +
     `**Cohost:** ${cohostId ? `<@${cohostId}>` : 'None'}\n` +
     `**Promotional:** ${promotional ? 'Yes' : 'No'}`;
@@ -125,8 +127,8 @@ export async function sendToShiftApprover(
     await host
       ?.send(
         approved
-          ? `Your shift request for ${shiftTime} has been approved by <@${user.id}>. Please ensure that you are available to attend the shift. If you have any questions, please reach out to the shift approver. If you are unable to attend the shift, please contact the shift approver as soon as possible.`
-          : `Your shift request for ${shiftTime} has been declined by <@${user.id}>. If you have any questions, please reach out to the shift approver.`,
+          ? `Your shift request for ${formattedShiftTime} has been approved by <@${user.id}>. Please ensure that you are available to attend the shift. If you have any questions, please reach out to the shift approver. If you are unable to attend the shift, please contact the shift approver as soon as possible.`
+          : `Your shift request for ${formattedShiftTime} has been declined by <@${user.id}>. If you have any questions, please reach out to the shift approver.`,
       )
       .catch(() => {});
 

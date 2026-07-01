@@ -6,10 +6,11 @@ import {
   markShiftStartedByShiftTime,
 } from '../services/shiftDueMonitorService';
 import { getShiftByShiftTime, listActiveShifts } from '../services/shiftStore';
+import {
+  formatShiftTimeWithTimestamp,
+  SHIFT_TIME_FORMAT,
+} from '../utils/shiftTime';
 import config from '../../config/config.json';
-
-const SHIFT_TIME_FORMAT =
-  /^(0[1-9]|[12]\d|3[01])-(0[1-9]|1[0-2]) ([01]\d|2[0-3]):[0-5]\d-([01]\d|2[0-3]):[0-5]\d$/;
 
 function formatShiftTimestamp(shiftTime: string, ms: number) {
   return `\`${shiftTime}\` <t:${Math.floor(ms / 1000)}:R>`;
@@ -168,7 +169,7 @@ export const shift: Command = {
           .setTitle('❗ Please Confirm Shift Request Submission ❗')
           .setDescription(
             `Please confirm your shift request submittion: <@${interaction.user.id}>.\n\n` +
-              `**Shift Time:** ${shiftTime}\n` +
+              `**Shift Time:** ${formatShiftTimeWithTimestamp(shiftTime)}\n` +
               `**Cohost:** ${cohost ? `<@${cohost.id}>` : 'None'}\n` +
               `**Promotional Shift:** ${promotional ? 'Yes' : 'No'}\n\n` +
               `Confirm this request by reacting with ✅ within the next 5 minutes, or by reacting with ❌ to deny it.\n` +
