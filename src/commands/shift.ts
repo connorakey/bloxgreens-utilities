@@ -206,7 +206,7 @@ export const shift: Command = {
           componentType: ComponentType.Button,
           time: 5 * 60 * 1000,
           filter: (buttonInteraction) =>
-          buttonInteraction.user.id === interaction.user.id,
+            buttonInteraction.user.id === interaction.user.id,
         });
 
         collector.on('collect', async (buttonInteraction) => {
@@ -228,12 +228,13 @@ export const shift: Command = {
 
           if (buttonInteraction.customId === 'deny_shift_request') {
             collector.stop('denied');
-            await buttonInteraction.update({
-              content: 'Shift request submission has been cancelled.',
-              embeds: [],
-              components: [],
-            }).catch(() => {
-            });
+            await buttonInteraction
+              .update({
+                content: 'Shift request submission has been cancelled.',
+                embeds: [],
+                components: [],
+              })
+              .catch(() => {});
           }
         });
 
@@ -246,7 +247,6 @@ export const shift: Command = {
             });
           }
         });
-
       } else {
         await interaction.reply({
           content: 'You do not have permission to create a shift.',
@@ -301,32 +301,37 @@ export const shift: Command = {
 
         if (shiftsChannel?.isSendable()) {
           const pingRoleMention = pingRoleId ? `<@&${pingRoleId}>` : '';
-          let cohostMention = shift.cohostDiscordId || "None"
-            ? `<@${shift.cohostDiscordId}>`
-            : 'None';
+          let cohostMention =
+            shift.cohostDiscordId || 'None'
+              ? `<@${shift.cohostDiscordId}>`
+              : 'None';
           if (cohostMention === `<@null>` || cohostMention === `<@undefined>`) {
             cohostMention = 'None';
           }
           const startedEmbed = new EmbedBuilder()
             .setTitle('📢 Shift Started')
-            .setColor(0xFF0000)
+            .setColor(0xff0000)
             .setDescription(
               `A new staff shift has now **commenced**!\n\n` +
-              `Host: <@${shift.hostDiscordId}>\n` +
-              `Co-Host: ${cohostMention}\n\n` +
-              `Duration: ${formatShiftDuration(shift.startMs, shift.endMs)}\n` +
-              'Shift Type: ' + (shift.promotional ? 'Promotional' : 'Regular') + '\n\n' +
-              (shift.promotional
-                ? 'We\'d love to see you join us! Whether you\'re looking to gain experience, improve your skills, simply support the team, or aiming for a promotion (I can\'t blame you!) everyone is welcome to attend. We hope to see you there!'
-                : 'We\'d love to see you join us! Whether you\'re looking to gain experience, improve your skills, or simply support the team, everyone is welcome to attend. We hope to see you there!') +
-              '\n\n' +
-              `[Open the game](https://www.roblox.com/games/74711204613713/Bloxgreens-Shopping)`,
-            )
+                `Host: <@${shift.hostDiscordId}>\n` +
+                `Co-Host: ${cohostMention}\n\n` +
+                `Duration: ${formatShiftDuration(shift.startMs, shift.endMs)}\n` +
+                'Shift Type: ' +
+                (shift.promotional ? 'Promotional' : 'Regular') +
+                '\n\n' +
+                (shift.promotional
+                  ? "We'd love to see you join us! Whether you're looking to gain experience, improve your skills, simply support the team, or aiming for a promotion (I can't blame you!) everyone is welcome to attend. We hope to see you there!"
+                  : "We'd love to see you join us! Whether you're looking to gain experience, improve your skills, or simply support the team, everyone is welcome to attend. We hope to see you there!") +
+                '\n\n' +
+                `[Open the game](https://www.roblox.com/games/74711204613713/Bloxgreens-Shopping)`,
+            );
 
-          await shiftsChannel.send({
-            content: pingRoleMention || undefined,
-            embeds: [startedEmbed],
-          }).catch(() => {});
+          await shiftsChannel
+            .send({
+              content: pingRoleMention || undefined,
+              embeds: [startedEmbed],
+            })
+            .catch(() => {});
         }
       }
 
@@ -349,7 +354,8 @@ export const shift: Command = {
 
       if (!member?.roles.cache.has(approverRoleId)) {
         await interaction.reply({
-          content: 'Only shift approvers can cancel shifts. If you are a shift approver, you are running this command in the wrong server.',
+          content:
+            'Only shift approvers can cancel shifts. If you are a shift approver, you are running this command in the wrong server.',
           ephemeral: true,
         });
         return;
