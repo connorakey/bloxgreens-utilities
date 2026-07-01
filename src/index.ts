@@ -4,7 +4,13 @@ import { handleInteraction } from './utils/handleInteraction';
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ActivityType, Client, Events, GatewayIntentBits, Partials } from 'discord.js';
+import {
+  ActivityType,
+  Client,
+  Events,
+  GatewayIntentBits,
+  Partials,
+} from 'discord.js';
 import { startShiftDueMonitor } from './services/shiftDueMonitorService';
 
 const STATUS_UPDATE_INTERVAL_MS = 60 * 60 * 1000;
@@ -43,7 +49,10 @@ function parseStatusMessagesCsv(content: string): string[] {
       continue;
     }
 
-    if (!inQuotes && (character === ',' || character === '\n' || character === '\r')) {
+    if (
+      !inQuotes &&
+      (character === ',' || character === '\n' || character === '\r')
+    ) {
       const message = field.trim();
       if (message) messages.push(message);
 

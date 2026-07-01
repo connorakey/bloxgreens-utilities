@@ -18,7 +18,7 @@ AI Usage:
 AI was used to completely generate the following files:
 /src/utils/handleInteractions.ts
 /src/utils/registerCommands.ts
-/src/services/*
+/src/services/\*
 
 AI was used to edit the following:
 Shift Cancel, and start functionality.
