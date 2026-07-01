@@ -1,4 +1,11 @@
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import {
+  SlashCommandBuilder,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
+} from 'discord.js';
 import type { Command } from '../types/Command';
 import { sendToShiftApprover } from '../services/shiftApprovalService';
 import {
@@ -172,32 +179,43 @@ export const shift: Command = {
               `**Shift Time:** ${formatShiftTimeWithTimestamp(shiftTime)}\n` +
               `**Cohost:** ${cohost ? `<@${cohost.id}>` : 'None'}\n` +
               `**Promotional Shift:** ${promotional ? 'Yes' : 'No'}\n\n` +
-              `Confirm this request by reacting with ✅ within the next 5 minutes, or by reacting with ❌ to deny it.\n` +
+              `Confirm this request by clicking **Approve** within the next 5 minutes, or by clicking **Decline** to cancel it.\n` +
               `Ensure that you have read the shift guidelines before approving, and that you are available to attend the shift if it is approved.\n` +
               `You have five (5) minutes to confirm this request, after which it will be automatically denied.`,
           )
           .setColor(0x00ff00);
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId('confirm_shift_request')
+            .setLabel('Approve')
+            .setStyle(ButtonStyle.Success),
+          new ButtonBuilder()
+            .setCustomId('deny_shift_request')
+            .setLabel('Decline')
+            .setStyle(ButtonStyle.Danger),
+        );
+
         const message = await interaction.reply({
           embeds: [embed],
+          components: [row],
           fetchReply: true,
         });
 
-        const filter = (reaction: any, user: any) => {
-          return ['✅', '❌'].includes(reaction.emoji.name) && !user.bot;
-        };
-
-        const collector = message.createReactionCollector({
-          filter,
+        const collector = message.createMessageComponentCollector({
+          componentType: ComponentType.Button,
           time: 5 * 60 * 1000,
+          filter: (buttonInteraction) =>
+          buttonInteraction.user.id === interaction.user.id,
         });
 
-        collector.on('collect', async (reaction, user) => {
-          if (reaction.emoji.name === '✅') {
+        collector.on('collect', async (buttonInteraction) => {
+          if (buttonInteraction.customId === 'confirm_shift_request') {
             collector.stop('approved');
-            await message.delete().catch(() => {});
-
-            await interaction.followUp({
+            await buttonInteraction.update({
               content: `Your shift request has been forwarded to our shift approvers for review. You will be notified once a decision has been made, please ensure that your direct messages are open so that you can receive the decision. Thank you for your patience!`,
+              embeds: [],
+              components: [],
             });
             sendToShiftApprover(
               interaction,
@@ -208,12 +226,13 @@ export const shift: Command = {
             );
           }
 
-          if (reaction.emoji.name === '❌') {
+          if (buttonInteraction.customId === 'deny_shift_request') {
             collector.stop('denied');
-            await message.delete().catch(() => {});
-
-            await interaction.followUp({
-              content: `Your shift request has been cancelled.`,
+            await buttonInteraction.update({
+              content: 'Shift request submission has been cancelled.',
+              embeds: [],
+              components: [],
+            }).catch(() => {
             });
           }
         });
@@ -228,7 +247,6 @@ export const shift: Command = {
           }
         });
 
-        await Promise.all([message.react('✅'), message.react('❌')]);
       } else {
         await interaction.reply({
           content: 'You do not have permission to create a shift.',
